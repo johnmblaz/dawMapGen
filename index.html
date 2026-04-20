@@ -2,6 +2,118 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>ACKS D@W Map Gen</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        body { background: #1a1a1b; color: #d1d1d1; font-family: monospace; display: flex; flex-direction: column; align-items: center; margin: 0; }
+        #controls { padding: 15px; background: #252526; width: 100%; display: flex; justify-content: center; gap: 20px; border-bottom: 2px solid #3e3e42; }
+        button { cursor: pointer; padding: 10px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; }
+        select { padding: 10px; background: #2d2d30; color: white; border: 1px solid #3e3e42; }
+    </style>
+</head>
+<body>
+
+<div id="controls">
+    <select id="terrainSelect">
+        <option value="clear">Clear</option>
+        <option value="woods">Woods</option>
+        <option value="scrub">Scrub</option>
+        <option value="swamp">Swamp</option>
+        <option value="mountains">Mountains</option>
+    </select>
+    <button onclick="generateMap()">Roll Terrain</button>
+</div>
+
+<script>
+let grid = [];
+const cols = 30;
+const rows = 20;
+const size = 18;
+
+const palette = {
+    clear: "#8c8e7b",
+    woods: "#3d4d3d",
+    scrub: "#a69f88",
+    swamp: "#4a5a5a",
+    mountains: "#5e5e5e"
+};
+
+function setup() {
+    createCanvas(windowWidth, windowHeight - 100);
+    generateMap();
+}
+
+function generateMap() {
+    const baseType = document.getElementById('terrainSelect').value;
+    grid = [];
+
+    // 1. Create Grid
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            grid.push({ c, r, type: baseType });
+        }
+    }
+
+    // 2. Roll Features (2-5 features)
+    let numFeatures = floor(random(2, 6));
+    for (let i = 0; i < numFeatures; i++) {
+        let featureType = getFeatureType(baseType);
+        placeFeature(featureType);
+    }
+    redraw();
+}
+
+function getFeatureType(base) {
+    const opts = { clear: "woods", woods: "clear", scrub: "clear", swamp: "woods", mountains: "scrub" };
+    return opts[base] || "clear";
+}
+
+function placeFeature(type) {
+    let centerX = floor(random(cols));
+    let centerY = floor(random(rows));
+    let radius = floor(random(1, 4));
+
+    grid.forEach(hex => {
+        // Simple hex distance approximation
+        let dx = hex.c - centerX;
+        let dy = hex.r - centerY;
+        let dist = (abs(dx) + abs(dx + dy) + abs(dy)) / 2;
+        
+        if (dist <= radius && random() > 0.1) {
+            hex.type = type;
+        }
+    });
+}
+
+function draw() {
+    background(26);
+    grid.forEach(hex => {
+        // Calculate Flat-Topped Hex Position
+        let x = hex.c * size * 1.5 + 50;
+        let y = hex.r * size * sqrt(3) + (hex.c % 2) * (size * sqrt(3) / 2) + 50;
+
+        fill(palette[hex.type]);
+        stroke(40);
+        
+        beginShape();
+        for (let a = 0; a < TWO_PI; a += PI / 3) {
+            vertex(x + cos(a) * size, y + sin(a) * size);
+        }
+        endShape(CLOSE);
+    });
+    noLoop();
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight - 100);
+    redraw();
+}
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACKS D@W Map Gen</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
