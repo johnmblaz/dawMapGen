@@ -6,13 +6,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
         body { background: #1a1a1b; color: #d1d1d1; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
-        #controls { padding: 10px; background: #252526; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; border-bottom: 2px solid #3e3e42; box-sizing: border-box; z-index: 10;}
-        .control-group { display: flex; align-items: center; gap: 5px; border: 1px solid #444; padding: 4px 8px; border-radius: 4px; font-size: 11px; }
-        button { cursor: pointer; padding: 4px 8px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: inherit; font-weight: bold; }
+        #controls { padding: 8px; background: #252526; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; border-bottom: 2px solid #3e3e42; box-sizing: border-box; z-index: 10;}
+        .control-group { display: flex; align-items: center; gap: 5px; border: 1px solid #444; padding: 3px 6px; border-radius: 4px; font-size: 11px; }
+        button { cursor: pointer; padding: 4px 8px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: inherit; font-weight: bold; font-size: 11px; }
         button:hover { background: #4e5a4e; }
-        select, input[type="range"] { padding: 2px; background: #2d2d30; color: white; border: 1px solid #3e3e42; font-family: inherit; cursor: pointer; }
-        span { font-weight: bold; color: #fff; min-width: 15px; text-align: center; }
-        #debug-panel { width: 100%; background: #111; padding: 8px; font-size: 11px; color: #00ff00; border-bottom: 1px solid #333; height: 60px; overflow-y: auto; box-sizing: border-box; }
+        select, input { padding: 2px; background: #2d2d30; color: white; border: 1px solid #3e3e42; font-family: inherit; font-size: 11px; }
+        input[type="number"] { width: 40px; }
+        #debug-panel { width: 100%; background: #111; padding: 6px; font-size: 10px; color: #00ff00; border-bottom: 1px solid #333; height: 50px; overflow-y: auto; box-sizing: border-box; }
         #legend { width: 100%; background: #1a1a1b; padding: 8px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid #333; position: fixed; bottom: 0; }
         .legend-item { font-size: 11px; display: flex; align-items: center; gap: 4px; }
     </style>
@@ -33,55 +33,52 @@
             <option value="Jungle">Jungle</option>
             <option value="Swamp">Swamp</option>
         </select>
+        <label><input type="checkbox" id="transparentCheck"> Transparent</label>
     </div>
     <div class="control-group">
-        <label>Size:</label>
-        <input type="range" id="sizeSlider" min="10" max="40" value="18">
+        <label>Scale(px):</label><input type="number" id="sizeInput" value="18">
+        <label>Border:</label><input type="number" id="borderInput" value="1">
     </div>
     <div class="control-group">
-        <label>W:</label>
-        <button id="btnColDec">-</button><span id="colVal">24</span><button id="btnColInc">+</button>
-    </div>
-    <div class="control-group">
-        <label>H:</label>
-        <button id="btnRowDec">-</button><span id="rowVal">18</span><button id="btnRowInc">+</button>
+        <label>W:</label><button id="btnColDec">-</button><span id="colVal">24</span><button id="btnColInc">+</button>
+        <label>H:</label><button id="btnRowDec">-</button><span id="rowVal">18</span><button id="btnRowInc">+</button>
     </div>
     <div class="control-group">
         <select id="orientSelect"><option value="flat">Flat-Top</option><option value="pointy">Pointy-Top</option></select>
         <select id="offsetSelect"><option value="even">Even</option><option value="odd">Odd</option></select>
     </div>
-    <button id="btnRoll" style="background: #5a4a3e;">Roll Terrain</button>
+    <div class="control-group">
+        <label><input type="checkbox" id="coordCheck"> Coords</label>
+    </div>
+    <button id="btnRoll" style="background: #5a4a3e;">Roll</button>
     <button id="btnExport" style="background: #2d2d30;">Export PNG</button>
 </div>
 
-<div id="debug-panel">Waiting for roll...</div>
+<div id="debug-panel">Ready.</div>
 <div id="legend"></div>
 
 <script>
 let grid = [];
-let cols = 24;
-let rows = 18;
-let hexSize = 18;
+let cols = 24, rows = 18;
 
 const terrainData = {
-    "Clear or Grass": { color: "#8c8e7b", symbol: "" },
-    "Barren": { color: "#7a7363", symbol: "" }, // Base terrains have no symbols now
-    "Desert": { color: "#d4b884", symbol: "" },
-    "Scrub": { color: "#a69f88", symbol: "" },
-    "Woods": { color: "#3d4d3d", symbol: "" },
-    "Mountains": { color: "#5e5e5e", symbol: "" },
-    "Jungle": { color: "#1e331e", symbol: "" },
-    "Swamp": { color: "#4a5a5a", symbol: "" },
-    "Hills": { color: "#7a7c6b", symbol: "" },
-    // Features (Pieces) DO have symbols
-    "Broken": { color: "#635d4d", symbol: "∴" },
-    "Cliff/Mountain": { color: "#444", symbol: "▲▲" },
-    "Forest/Jungle": { color: "#2d3d2d", symbol: "♣" },
-    "Impenet. Forest": { color: "#162116", symbol: "♣♣" },
-    "Mud": { color: "#54493a", symbol: "≡" },
-    "Pond/Lake": { color: "#4a6a8a", symbol: "o" },
-    "Stream": { color: "#5a7a9a", symbol: "~" },
-    "Trench": { color: "#333", symbol: "═" }
+    "Clear or Grass": { color: [140, 142, 123], symbol: "" },
+    "Barren": { color: [122, 115, 99], symbol: "" },
+    "Desert": { color: [212, 184, 132], symbol: "" },
+    "Hills": { color: [122, 124, 107], symbol: "" },
+    "Scrub": { color: [166, 159, 136], symbol: "" },
+    "Woods": { color: [61, 77, 61], symbol: "" },
+    "Mountains": { color: [94, 94, 94], symbol: "" },
+    "Jungle": { color: [30, 51, 30], symbol: "" },
+    "Swamp": { color: [74, 90, 90], symbol: "" },
+    "Broken": { color: [99, 93, 77], symbol: "∴" },
+    "Cliff/Mountain": { color: [68, 68, 68], symbol: "▲▲" },
+    "Forest/Jungle": { color: [45, 61, 45], symbol: "♣" },
+    "Impenet. Forest": { color: [22, 33, 22], symbol: "♣♣" },
+    "Mud": { color: [84, 73, 58], symbol: "≡" },
+    "Pond/Lake": { color: [74, 106, 138], symbol: "o" },
+    "Stream": { color: [90, 122, 154], symbol: "~" },
+    "Trench": { color: [51, 51, 51], symbol: "═" }
 };
 
 function setup() {
@@ -90,11 +87,15 @@ function setup() {
     document.getElementById('btnColInc').onclick = () => changeDim('cols', 1);
     document.getElementById('btnRowDec').onclick = () => changeDim('rows', -1);
     document.getElementById('btnRowInc').onclick = () => changeDim('rows', 1);
-    document.getElementById('sizeSlider').oninput = (e) => { hexSize = parseInt(e.target.value); redraw(); };
-    document.getElementById('btnRoll').onclick = () => generateMap();
+    
+    // UI Refreshers
+    ['sizeInput', 'borderInput', 'coordCheck', 'transparentCheck', 'orientSelect', 'offsetSelect'].forEach(id => {
+        document.getElementById(id).onchange = () => redraw();
+    });
+
+    document.getElementById('btnRoll').onclick = generateMap;
     document.getElementById('btnExport').onclick = exportCroppedMap;
-    document.getElementById('orientSelect').onchange = () => redraw();
-    document.getElementById('offsetSelect').onchange = () => redraw();
+    
     createLegend();
     generateMap();
 }
@@ -113,7 +114,8 @@ function createLegend() {
     ["Broken", "Cliff/Mountain", "Forest/Jungle", "Impenet. Forest", "Mud", "Pond/Lake", "Stream", "Trench"].forEach(key => {
         let item = document.createElement('div');
         item.className = 'legend-item';
-        item.innerHTML = `<span style="color:${terrainData[key].color}">${terrainData[key].symbol}</span> ${key}`;
+        let c = terrainData[key].color;
+        item.innerHTML = `<span style="color:rgb(${c[0]},${c[1]},${c[2]})">${terrainData[key].symbol}</span> ${key}`;
         leg.appendChild(item);
     });
 }
@@ -123,7 +125,7 @@ function generateMap() {
     grid = [];
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-            grid.push({ c, r, type: baseType });
+            grid.push({ c, r, type: baseType, isBase: true });
         }
     }
     const pieceCounts = {
@@ -134,65 +136,41 @@ function generateMap() {
     let dice = pieceCounts[baseType] || [2, 4];
     let numFeatures = 0;
     for(let i=0; i<dice[0]; i++) numFeatures += Math.floor(random(1, dice[1]+1));
+    document.getElementById('debug-panel').innerHTML = `>> Rolling ${baseType}: ${numFeatures} pieces placed.`;
     
-    document.getElementById('debug-panel').innerHTML = `>> Generated ${numFeatures} Features for ${baseType}`;
-    
-    for (let i = 0; i < numFeatures; i++) {
-        let feature = rollFeatureTable(baseType);
-        if (feature) placeFeature(feature);
-    }
+    for (let i = 0; i < numFeatures; i++) placeFeature(rollFeatureTable(baseType));
     redraw();
 }
 
 function rollFeatureTable(base) {
     let r = Math.floor(random(1, 21));
-    // Implementation of D@W table...
     if (base === "Clear or Grass") {
         if (r <= 4) return "Broken"; if (r <= 6) return "Cliff/Mountain"; if (r <= 8) return "Forest/Jungle"; if (r <= 14) return "Hills";
         if (r <= 16) return "Mud"; if (r <= 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Swamp";
     }
-    if (base === "Barren") {
-        if (r <= 7) return "Broken"; if (r <= 12) return "Cliff/Mountain"; if (r <= 18) return "Hills"; if (r === 19) return "Mud"; if (r === 20) return "Trench";
-    }
-    if (base === "Desert") {
-        if (r <= 5) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 16) return "Hills"; if (r <= 18) return "Mud"; if (r >= 19) return "Trench";
-    }
-    if (base === "Hills") {
-        if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 6) return "Forest/Jungle"; if (r <= 16) return "Hills"; if (r <= 18) return "Pond/Lake"; if (r >= 19) return "Stream";
-    }
-    if (base === "Scrub") {
-        if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 8) return "Forest/Jungle"; if (r <= 16) return "Hills"; if (r === 17) return "Impenet. Forest"; if (r === 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Trench";
-    }
-    if (base === "Woods") {
-        if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 12) return "Forest/Jungle"; if (r <= 14) return "Hills"; if (r <= 17) return "Impenet. Forest"; if (r === 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Swamp";
-    }
-    if (base === "Mountains") {
-        if (r <= 4) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 12) return "Forest/Jungle"; if (r <= 14) return "Hills"; if (r <= 16) return "Impenet. Forest"; if (r <= 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Trench";
-    }
-    if (base === "Jungle") {
-        if (r <= 2) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 12) return "Hills"; if (r <= 15) return "Impenet. Forest"; if (r === 16) return "Mud"; if (r === 17) return "Pond/Lake"; if (r <= 19) return "Stream"; if (r === 20) return "Swamp";
-    }
-    if (base === "Swamp") {
-        if (r <= 4) return "Forest/Jungle"; if (r <= 8) return "Impenet. Forest"; if (r <= 10) return "Mud"; if (r === 11) return "Pond/Lake"; if (r <= 13) return "Stream"; if (r <= 20) return "Swamp";
-    }
+    if (base === "Barren") { if (r <= 7) return "Broken"; if (r <= 12) return "Cliff/Mountain"; if (r <= 18) return "Hills"; if (r === 19) return "Mud"; if (r === 20) return "Trench"; }
+    if (base === "Desert") { if (r <= 5) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 16) return "Hills"; if (r <= 18) return "Mud"; if (r >= 19) return "Trench"; }
+    if (base === "Hills") { if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 6) return "Forest/Jungle"; if (r <= 16) return "Hills"; if (r <= 18) return "Pond/Lake"; if (r >= 19) return "Stream"; }
+    if (base === "Scrub") { if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 8) return "Forest/Jungle"; if (r <= 16) return "Hills"; if (r === 17) return "Impenet. Forest"; if (r === 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Trench"; }
+    if (base === "Woods") { if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 12) return "Forest/Jungle"; if (r <= 14) return "Hills"; if (r <= 17) return "Impenet. Forest"; if (r === 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Swamp"; }
+    if (base === "Mountains") { if (r <= 4) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 12) return "Forest/Jungle"; if (r <= 14) return "Hills"; if (r <= 16) return "Impenet. Forest"; if (r <= 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Trench"; }
+    if (base === "Jungle") { if (r <= 2) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 12) return "Hills"; if (r <= 15) return "Impenet. Forest"; if (r === 16) return "Mud"; if (r === 17) return "Pond/Lake"; if (r <= 19) return "Stream"; if (r === 20) return "Swamp"; }
+    if (base === "Swamp") { if (r <= 4) return "Forest/Jungle"; if (r <= 8) return "Impenet. Forest"; if (r <= 10) return "Mud"; if (r === 11) return "Pond/Lake"; if (r <= 13) return "Stream"; if (r <= 20) return "Swamp"; }
     return "Broken";
 }
 
 function placeFeature(type) {
-    let centerX = Math.floor(random(cols));
-    let centerY = Math.floor(random(rows));
+    let centerX = Math.floor(random(cols)), centerY = Math.floor(random(rows));
     let radius = Math.floor(random(1, 4));
     grid.forEach(hex => {
-        let dx = hex.c - centerX; let dy = hex.r - centerY;
+        let dx = hex.c - centerX, dy = hex.r - centerY;
         let dist = (Math.abs(dx) + Math.abs(dx + dy) + Math.abs(dy)) / 2;
-        if (dist <= radius && random() > 0.15) hex.type = type;
+        if (dist <= radius && random() > 0.15) { hex.type = type; hex.isBase = false; }
     });
 }
 
 function getHexPos(c, r, sz, orient, offset) {
-    let h = sz * Math.sqrt(3);
-    let w = sz * 2;
-    let x, y;
+    let h = sz * Math.sqrt(3), x, y;
     if (orient === "flat") {
         x = c * (sz * 1.5);
         let stagger = (offset === "even") ? (c % 2 === 0 ? 0 : h / 2) : (c % 2 !== 0 ? 0 : h / 2);
@@ -205,73 +183,72 @@ function getHexPos(c, r, sz, orient, offset) {
     return { x, y };
 }
 
-function renderHex(x, y, type, sz, orient) {
-    let data = terrainData[type] || terrainData["Clear or Grass"];
-    fill(data.color); stroke(40);
-    push();
-    translate(x, y);
-    if (orient === "pointy") rotate(PI / 6);
-    beginShape();
-    for (let a = 0; a < TWO_PI; a += PI / 3) vertex(Math.cos(a) * sz, Math.sin(a) * sz);
-    endShape(CLOSE);
-    pop();
+function drawHex(ctx, hex, sz, orient, offset, minX, minY, margin, isExport) {
+    let pos = getHexPos(hex.c, hex.r, sz, orient, offset);
+    let x = isExport ? (pos.x - minX + margin) : (pos.x + 50);
+    let y = isExport ? (pos.y - minY + margin) : (pos.y + 50);
+    
+    let data = terrainData[hex.type];
+    let isTrans = document.getElementById('transparentCheck').checked;
+    let bWidth = parseInt(document.getElementById('borderInput').value);
+    let showCoords = document.getElementById('coordCheck').checked;
+
+    ctx.push();
+    ctx.translate(x, y);
+    
+    // Fill
+    if (hex.isBase && isTrans) ctx.noFill();
+    else ctx.fill(data.color[0], data.color[1], data.color[2]);
+    
+    // Stroke
+    ctx.stroke(40);
+    ctx.strokeWeight(bWidth);
+    
+    if (orient === "pointy") ctx.rotate(PI / 6);
+    ctx.beginShape();
+    for (let a = 0; a < TWO_PI; a += PI / 3) ctx.vertex(Math.cos(a) * sz, Math.sin(a) * sz);
+    ctx.endShape(CLOSE);
+    ctx.pop();
+
+    // Symbols & Coords
+    ctx.noStroke(); ctx.textAlign(CENTER, CENTER);
     if (data.symbol) {
-        fill(255, 120); noStroke(); textAlign(CENTER, CENTER); textSize(sz * 0.7);
-        text(data.symbol, x, y);
+        ctx.fill(255, 140); ctx.textSize(sz * 0.7);
+        ctx.text(data.symbol, x, y);
+    }
+    if (showCoords) {
+        ctx.fill(255, 80); ctx.textSize(sz * 0.4);
+        let coordY = data.symbol ? y + (sz * 0.5) : y;
+        ctx.text(`${hex.c},${hex.r}`, x, coordY);
     }
 }
 
 function draw() {
     background(26);
-    const orient = document.getElementById('orientSelect').value;
-    const offset = document.getElementById('offsetSelect').value;
-    grid.forEach(hex => {
-        let pos = getHexPos(hex.c, hex.r, hexSize, orient, offset);
-        renderHex(pos.x + 50, pos.y + 50, hex.type, hexSize, orient);
-    });
+    let sz = parseInt(document.getElementById('sizeInput').value);
+    let orient = document.getElementById('orientSelect').value;
+    let offset = document.getElementById('offsetSelect').value;
+    grid.forEach(hex => drawHex(this, hex, sz, orient, offset, 0, 0, 0, false));
     noLoop();
 }
 
 function exportCroppedMap() {
-    const orient = document.getElementById('orientSelect').value;
-    const offset = document.getElementById('offsetSelect').value;
-    
-    // Calculate bounds
+    let sz = parseInt(document.getElementById('sizeInput').value);
+    let orient = document.getElementById('orientSelect').value;
+    let offset = document.getElementById('offsetSelect').value;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    grid.forEach(hex => {
-        let pos = getHexPos(hex.c, hex.r, hexSize, orient, offset);
-        minX = min(minX, pos.x); minY = min(minY, pos.y);
-        maxX = max(maxX, pos.x); maxY = max(maxY, pos.y);
+
+    grid.forEach(h => {
+        let p = getHexPos(h.c, h.r, sz, orient, offset);
+        minX = min(minX, p.x); minY = min(minY, p.y);
+        maxX = max(maxX, p.x); maxY = max(maxY, p.y);
     });
 
-    // Padding for hex edges
-    let margin = hexSize * 1.5;
-    let exportW = (maxX - minX) + (margin * 2);
-    let exportH = (maxY - minY) + (margin * 2);
-
-    let off = createGraphics(exportW, exportH);
-    off.background(26);
-    
-    grid.forEach(hex => {
-        let pos = getHexPos(hex.c, hex.r, hexSize, orient, offset);
-        let data = terrainData[hex.type] || terrainData["Clear or Grass"];
-        
-        off.fill(data.color); off.stroke(40);
-        off.push();
-        off.translate(pos.x - minX + margin, pos.y - minY + margin);
-        if (orient === "pointy") off.rotate(PI / 6);
-        off.beginShape();
-        for (let a = 0; a < TWO_PI; a += PI / 3) off.vertex(Math.cos(a) * hexSize, Math.sin(a) * hexSize);
-        off.endShape(CLOSE);
-        off.pop();
-        
-        if (data.symbol) {
-            off.fill(255, 120); off.noStroke(); off.textAlign(CENTER, CENTER); off.textSize(hexSize * 0.7);
-            off.text(data.symbol, pos.x - minX + margin, pos.y - minY + margin);
-        }
-    });
-
-    save(off, "acks-dw-battlemap.png");
+    let margin = sz * 1.2, w = (maxX - minX) + (margin * 2), h = (maxY - minY) + (margin * 2);
+    let off = createGraphics(w, h);
+    if (!document.getElementById('transparentCheck').checked) off.background(26);
+    grid.forEach(hex => drawHex(off, hex, sz, orient, offset, minX, minY, margin, true));
+    save(off, "dw-map.png");
 }
 
 function windowResized() { resizeCanvas(windowWidth, windowHeight - 150); redraw(); }
