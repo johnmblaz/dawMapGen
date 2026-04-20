@@ -12,7 +12,7 @@
         button:hover { background: #4e5a4e; }
         select, input { padding: 2px; background: #2d2d30; color: white; border: 1px solid #3e3e42; font-family: inherit; font-size: 10px; }
         input[type="number"] { width: 35px; }
-        #debug-panel { width: 100%; background: #111; padding: 6px; font-size: 10px; color: #00ff00; border-bottom: 1px solid #333; height: 45px; overflow-y: auto; box-sizing: border-box; }
+        #debug-panel { width: 100%; background: #111; padding: 8px; font-size: 10px; color: #00ff00; border-bottom: 1px solid #333; height: 80px; overflow-y: auto; box-sizing: border-box; }
         #legend { width: 100%; background: #1a1a1b; padding: 8px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid #333; position: fixed; bottom: 0; }
         .legend-item { font-size: 10px; display: flex; align-items: center; gap: 4px; }
     </style>
@@ -57,7 +57,7 @@
         <button id="btnRowDec">-</button><span id="rowVal">18</span><button id="btnRowInc">+</button>
     </div>
     <div class="control-group">
-        <select id="orientSelect"><option value="flat">Flat</option><option value="pointy">Pointy</option></select>
+        <select id="orientSelect"><option value="flat">Flat</option><option value="pointy" selected>Pointy</option></select>
         <select id="offsetSelect"><option value="even">Even</option><option value="odd">Odd</option></select>
     </div>
     <button id="btnRoll" style="background: #5a4a3e;">Roll</button>
@@ -70,6 +70,7 @@
 <script>
 let grid = [];
 let cols = 24, rows = 18;
+let debugLog = [];
 
 const terrainData = {
     "Clear or Grass": { color: [140, 142, 123], symbol: "" },
@@ -92,22 +93,15 @@ const terrainData = {
 };
 
 function setup() {
-    createCanvas(windowWidth, windowHeight - 150);
-    
-    // Clear event listeners then re-bind
+    createCanvas(windowWidth, windowHeight - 180);
     const ids = ['sizeInput', 'borderInput', 'coordCheck', 'transparentCheck', 'orientSelect', 'offsetSelect', 'gridCheck', 'iconCheck', 'coordSizeInput', 'coordPos'];
-    ids.forEach(id => {
-        const el = document.getElementById(id);
-        el.onchange = () => redraw();
-    });
-
+    ids.forEach(id => { document.getElementById(id).onchange = () => redraw(); });
     document.getElementById('btnColDec').onclick = () => changeDim('cols', -1);
     document.getElementById('btnColInc').onclick = () => changeDim('cols', 1);
     document.getElementById('btnRowDec').onclick = () => changeDim('rows', -1);
     document.getElementById('btnRowInc').onclick = () => changeDim('rows', 1);
     document.getElementById('btnRoll').onclick = generateMap;
     document.getElementById('btnExport').onclick = exportCroppedMap;
-    
     createLegend();
     generateMap();
 }
@@ -132,41 +126,34 @@ function createLegend() {
     });
 }
 
-function rollDice(num, sides) {
-    let total = 0;
-    for(let i=0; i<num; i++) total += Math.floor(random(1, sides + 1));
-    return total;
-}
-
 function generateMap() {
     const baseType = document.getElementById('terrainSelect').value;
     grid = [];
+    debugLog = [];
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             grid.push({ c, r, type: baseType, isBase: true });
         }
     }
-
-    // Battlemap Piece Counts per your provided table
     const pieceCounts = {
         "Clear or Grass": [2, 4], "Barren": [3, 4], "Desert": [3, 4],
         "Hills": [4, 4], "Scrub": [4, 4], "Woods": [4, 6],
         "Mountains": [4, 8], "Jungle": [4, 8], "Swamp": [4, 8]
     };
-    
     let dice = pieceCounts[baseType];
-    let numFeatures = rollDice(dice[0], dice[1]);
-    let log = [`>> Rolled ${dice[0]}d${dice[1]} for ${baseType}: ${numFeatures} pieces.`];
+    let numFeatures = 0;
+    for(let i=0; i<dice[0]; i++) numFeatures += Math.floor(random(1, dice[1] + 1));
+    
+    debugLog.push(`>> BATTLEMAP ROLL: ${dice[0]}d${dice[1]} for ${baseType}. Total pieces: ${numFeatures}`);
     
     for (let i = 0; i < numFeatures; i++) {
         let feature = rollFeatureTable(baseType);
         if (feature) {
-            log.push(` + ${feature}`);
-            placeFeature(feature);
+            placeFeatureAtScale(feature, i + 1);
         }
     }
     
-    document.getElementById('debug-panel').innerHTML = log.join("<br>");
+    updateDebugPanel();
     redraw();
 }
 
@@ -187,14 +174,60 @@ function rollFeatureTable(base) {
     return null;
 }
 
-function placeFeature(type) {
+function placeFeatureAtScale(type, index) {
     let centerX = Math.floor(random(cols)), centerY = Math.floor(random(rows));
-    let radius = Math.floor(random(1, 4));
+    let roll = random();
+    let affectedCoords = [];
+    let sizeLabel = "";
+
+    if (roll < 0.33) { 
+        sizeLabel = "Small (1 hex)";
+        affectedCoords.push({c: centerX, r: centerY});
+    } else if (roll < 0.66) { 
+        sizeLabel = "Medium (3 hexes)";
+        affectedCoords.push({c: centerX, r: centerY}, {c: centerX+1, r: centerY}, {c: centerX, r: centerY+1});
+    } else { 
+        sizeLabel = "Large (7 hexes)";
+        affectedCoords.push({c: centerX, r: centerY});
+        for (let i = 0; i < 6; i++) {
+            let neighbor = getHexNeighbor(centerX, centerY, i);
+            affectedCoords.push(neighbor);
+        }
+    }
+
+    debugLog.push(`${index}. ${type} at (${centerX},${centerY}) - Size: ${sizeLabel}`);
+
     grid.forEach(hex => {
-        let dx = hex.c - centerX, dy = hex.r - centerY;
-        let dist = (Math.abs(dx) + Math.abs(dx + dy) + Math.abs(dy)) / 2;
-        if (dist <= radius && random() > 0.15) { hex.type = type; hex.isBase = false; }
+        if (affectedCoords.some(coord => coord.c === hex.c && coord.r === hex.r)) {
+            hex.type = type; hex.isBase = false;
+        }
     });
+}
+
+function getHexNeighbor(c, r, dir) {
+    // Neighbor logic for both orientations
+    const isPointy = document.getElementById('orientSelect').value === "pointy";
+    if (isPointy) {
+        const pointyNeighbors = [
+            [ [1, 0], [1, -1], [0, -1], [-1, 0], [0, 1], [1, 1] ], // Even row
+            [ [1, 0], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1] ] // Odd row
+        ];
+        let parity = r % 2;
+        let d = pointyNeighbors[parity][dir];
+        return { c: c + d[0], r: r + d[1] };
+    } else {
+        const flatNeighbors = [
+            [ [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [0, 1] ], // Even col
+            [ [1, 1], [1, 0], [0, -1], [-1, 0], [-1, 1], [0, 1] ]   // Odd col
+        ];
+        let parity = c % 2;
+        let d = flatNeighbors[parity][dir];
+        return { c: c + d[0], r: r + d[1] };
+    }
+}
+
+function updateDebugPanel() {
+    document.getElementById('debug-panel').innerHTML = debugLog.join("<br>");
 }
 
 function getHexPos(c, r, sz, orient, offset) {
@@ -215,32 +248,31 @@ function drawHex(ctx, hex, sz, orient, offset, minX, minY, margin, isExport) {
     let pos = getHexPos(hex.c, hex.r, sz, orient, offset);
     let x = isExport ? (pos.x - minX + margin) : (pos.x + 50);
     let y = isExport ? (pos.y - minY + margin) : (pos.y + 50);
-    
     let data = terrainData[hex.type];
     let isTrans = document.getElementById('transparentCheck').checked;
     let bWidth = parseInt(document.getElementById('borderInput').value);
-    let showCoords = document.getElementById('coordCheck').checked;
-    let showIcons = document.getElementById('iconCheck').checked;
     let showGrid = document.getElementById('gridCheck').checked;
+    let showIcons = document.getElementById('iconCheck').checked;
+    let showCoords = document.getElementById('coordCheck').checked;
     let cSize = parseInt(document.getElementById('coordSizeInput').value);
     let cPos = document.getElementById('coordPos').value;
 
     ctx.push();
     ctx.translate(x, y);
-    
     if (hex.isBase && isTrans) ctx.noFill();
     else ctx.fill(data.color[0], data.color[1], data.color[2]);
     
+    let drawRadius = showGrid ? sz : sz * 1.02;
     if (showGrid) { ctx.stroke(40); ctx.strokeWeight(bWidth); } else { ctx.noStroke(); }
     
     if (orient === "pointy") ctx.rotate(PI / 6);
     ctx.beginShape();
-    for (let a = 0; a < TWO_PI; a += PI / 3) ctx.vertex(Math.cos(a) * sz, Math.sin(a) * sz);
+    for (let a = 0; a < TWO_PI; a += PI / 3) ctx.vertex(Math.cos(a) * drawRadius, Math.sin(a) * drawRadius);
     ctx.endShape(CLOSE);
     ctx.pop();
 
     ctx.noStroke(); ctx.textAlign(CENTER, CENTER);
-    if (showIcons && data.symbol) {
+    if (showIcons && data.symbol && !hex.isBase) {
         ctx.fill(255, 140); ctx.textSize(sz * 0.7);
         ctx.text(data.symbol, x, y);
     }
@@ -268,21 +300,19 @@ function exportCroppedMap() {
     let orient = document.getElementById('orientSelect').value;
     let offset = document.getElementById('offsetSelect').value;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
     grid.forEach(h => {
         let p = getHexPos(h.c, h.r, sz, orient, offset);
         minX = min(minX, p.x); minY = min(minY, p.y);
         maxX = max(maxX, p.x); maxY = max(maxY, p.y);
     });
-
     let margin = sz * 1.5, w = (maxX - minX) + (margin * 2), h = (maxY - minY) + (margin * 2);
     let off = createGraphics(w, h);
     if (!document.getElementById('transparentCheck').checked) off.background(26);
     grid.forEach(hex => drawHex(off, hex, sz, orient, offset, minX, minY, margin, true));
-    save(off, "acks-dw-map.png");
+    save(off, "acks-dw-tactical.png");
 }
 
-function windowResized() { resizeCanvas(windowWidth, windowHeight - 150); redraw(); }
+function windowResized() { resizeCanvas(windowWidth, windowHeight - 180); redraw(); }
 </script>
 </body>
 </html>
