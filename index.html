@@ -6,28 +6,49 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
         body { background: #1a1a1b; color: #d1d1d1; font-family: monospace; display: flex; flex-direction: column; align-items: center; margin: 0; }
-        #controls { padding: 15px; background: #252526; width: 100%; display: flex; justify-content: center; gap: 20px; border-bottom: 2px solid #3e3e42; }
-        button { cursor: pointer; padding: 10px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; }
-        select { padding: 10px; background: #2d2d30; color: white; border: 1px solid #3e3e42; }
+        #controls { padding: 15px; background: #252526; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; border-bottom: 2px solid #3e3e42; }
+        .control-group { display: flex; align-items: center; gap: 8px; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; }
+        button { cursor: pointer; padding: 5px 10px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: monospace; }
+        button:hover { background: #4e5a4e; }
+        select { padding: 8px; background: #2d2d30; color: white; border: 1px solid #3e3e42; }
+        span { font-weight: bold; color: #fff; min-width: 20px; text-align: center; }
     </style>
 </head>
 <body>
 
 <div id="controls">
-    <select id="terrainSelect">
-        <option value="clear">Clear</option>
-        <option value="woods">Woods</option>
-        <option value="scrub">Scrub</option>
-        <option value="swamp">Swamp</option>
-        <option value="mountains">Mountains</option>
-    </select>
-    <button onclick="generateMap()">Roll Terrain</button>
+    <div class="control-group">
+        <label>Base: </label>
+        <select id="terrainSelect">
+            <option value="clear">Clear</option>
+            <option value="woods">Woods</option>
+            <option value="scrub">Scrub</option>
+            <option value="swamp">Swamp</option>
+            <option value="mountains">Mountains</option>
+        </select>
+    </div>
+
+    <div class="control-group">
+        <label>Width:</label>
+        <button onclick="changeDim('cols', -1)">-</button>
+        <span id="colVal">24</span>
+        <button onclick="changeDim('cols', 1)">+</button>
+    </div>
+
+    <div class="control-group">
+        <label>Height:</label>
+        <button onclick="changeDim('rows', -1)">-</button>
+        <span id="rowVal">18</span>
+        <button onclick="changeDim('rows', 1)">+</button>
+    </div>
+
+    <button onclick="generateMap()" style="background: #5a4a3e; border-color: #7a6a5e;">Roll Terrain</button>
 </div>
 
 <script>
 let grid = [];
-const cols = 24;
-const rows = 18;
+let cols = 24;
+let rows = 18;
 const size = 18;
 
 const palette = {
@@ -39,22 +60,32 @@ const palette = {
 };
 
 function setup() {
-    createCanvas(windowWidth, windowHeight - 100);
+    createCanvas(windowWidth, windowHeight - 120);
     generateMap();
+}
+
+function changeDim(dim, amt) {
+    if (dim === 'cols') cols = max(5, cols + amt);
+    if (dim === 'rows') rows = max(5, rows + amt);
+    
+    document.getElementById('colVal').innerText = cols;
+    document.getElementById('rowVal').innerText = rows;
+    
+    generateMap(); // Re-generate immediately so you see the size change
 }
 
 function generateMap() {
     const baseType = document.getElementById('terrainSelect').value;
     grid = [];
 
-    // 1. Create Grid
+    // 1. Create Grid based on current cols/rows
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             grid.push({ c, r, type: baseType });
         }
     }
 
-    // 2. Roll Features (2-5 features)
+    // 2. Roll Features
     let numFeatures = floor(random(2, 6));
     for (let i = 0; i < numFeatures; i++) {
         let featureType = getFeatureType(baseType);
@@ -74,7 +105,6 @@ function placeFeature(type) {
     let radius = floor(random(1, 4));
 
     grid.forEach(hex => {
-        // Simple hex distance approximation
         let dx = hex.c - centerX;
         let dy = hex.r - centerY;
         let dist = (abs(dx) + abs(dx + dy) + abs(dy)) / 2;
@@ -105,145 +135,7 @@ function draw() {
 }
 
 function windowResized() {
-    resizeCanvas(windowWidth, windowHeight - 100);
-    redraw();
-}
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ACKS D@W Map Gen</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
-    <script src="https://unpkg.com/honeycomb-grid@4.1.4/dist/honeycomb-grid.umd.js"></script>
-    <style>
-        body { background: #1a1a1b; color: #d1d1d1; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; margin: 0; }
-        #controls { padding: 20px; background: #252526; width: 100%; display: flex; justify-content: center; gap: 20px; border-bottom: 2px solid #3e3e42; box-sizing: border-box; }
-        canvas { border: 1px solid #3e3e42; margin-top: 20px; }
-        button { cursor: pointer; padding: 10px 20px; background: #3e4a3e; color: #fff; border: 1px solid #5e6a5e; font-weight: bold; }
-        button:hover { background: #4e5a4e; }
-        select { padding: 10px; background: #2d2d30; color: #fff; border: 1px solid #3e3e42; }
-        #log { position: fixed; bottom: 10px; left: 10px; font-size: 12px; color: #888; }
-    </style>
-</head>
-<body>
-
-<div id="controls">
-    <div>
-        <label>Base Terrain: </label>
-        <select id="terrainSelect">
-            <option value="clear">Clear</option>
-            <option value="woods">Woods</option>
-            <option value="scrub">Scrub</option>
-            <option value="swamp">Swamp</option>
-            <option value="mountains">Mountains</option>
-        </select>
-    </div>
-    <button id="rollBtn">Roll Terrain</button>
-</div>
-<div id="log">Status: Initializing...</div>
-
-<script>
-const { defineHex, Grid, rectangle } = Honeycomb;
-
-// Setup
-const HEX_SIZE = 18;
-const MyHex = defineHex({ dimensions: HEX_SIZE, orientation: 'flat' });
-let grid;
-let mapData = {};
-
-const palette = {
-    clear: "#8c8e7b",
-    woods: "#3d4d3d",
-    scrub: "#a69f88",
-    swamp: "#4a5a5a",
-    mountains: "#5e5e5e",
-    outline: "#2a2a2a"
-};
-
-function setup() {
-    createCanvas(windowWidth - 40, windowHeight - 140);
-    document.getElementById('rollBtn').addEventListener('click', generateMap);
-    generateMap();
-}
-
-function generateMap() {
-    const baseType = document.getElementById('terrainSelect').value;
-    grid = new Grid(MyHex, rectangle({ width: 30, height: 20 }));
-    mapData = {};
-
-    // Initial fill
-    grid.forEach(hex => {
-        mapData[`${hex.q},${hex.r}`] = baseType;
-    });
-
-    // Roll 2-5 features
-    let numFeatures = floor(random(2, 6));
-    document.getElementById('log').innerText = `Status: Generated ${numFeatures} features.`;
-
-    for (let i = 0; i < numFeatures; i++) {
-        let type = getFeatureType(baseType);
-        placeFeature(type);
-    }
-    
-    redraw();
-}
-
-function getFeatureType(base) {
-    const options = {
-        clear: ["woods", "scrub", "mountains"],
-        woods: ["clear", "scrub", "swamp"],
-        scrub: ["clear", "woods", "mountains"],
-        swamp: ["woods", "scrub"],
-        mountains: ["scrub", "clear"]
-    };
-    let list = options[base] || ["clear"];
-    return list[floor(random(list.length))];
-}
-
-function placeFeature(type) {
-    const allHexes = Array.from(grid);
-    const center = allHexes[floor(random(allHexes.length))];
-    const radius = floor(random(1, 4));
-
-    // Manual distance check (The fix for the error)
-    grid.forEach(hex => {
-        const distance = grid.distance(center, hex);
-        if (distance <= radius) {
-            // Irregular edges
-            if (random() > 0.15) {
-                mapData[`${hex.q},${hex.r}`] = type;
-            }
-        }
-    });
-}
-
-function draw() {
-    background(26);
-    grid.forEach(hex => {
-        const type = mapData[`${hex.q},${hex.r}`] || "clear";
-        const { x, y } = hex;
-        
-        push();
-        translate(x + 50, y + 50);
-        fill(palette[type]);
-        stroke(palette.outline);
-        
-        beginShape();
-        for (let i = 0; i < 6; i++) {
-            let angle = PI / 3 * i;
-            vertex(cos(angle) * HEX_SIZE, sin(angle) * HEX_SIZE);
-        }
-        endShape(CLOSE);
-        pop();
-    });
-    noLoop();
-}
-
-function windowResized() {
-    resizeCanvas(windowWidth - 40, windowHeight - 140);
+    resizeCanvas(windowWidth, windowHeight - 120);
     redraw();
 }
 </script>
