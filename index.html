@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D@W Hex Map Gen</title>
+    <title>ACKS D@W Map Gen</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <script src="https://unpkg.com/honeycomb-grid@4.1.4/dist/honeycomb-grid.umd.js"></script>
     <style>
-        body { background: #1a1a1a; color: #e0e0e0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
-        #controls { padding: 15px; background: #2a2a2a; width: 100%; display: flex; justify-content: center; gap: 20px; border-bottom: 1px solid #444; }
-        canvas { margin-top: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        button { cursor: pointer; padding: 8px 16px; background: #4a5a4a; color: white; border: none; border-radius: 4px; }
-        button:hover { background: #5a6a5a; }
-        select { padding: 8px; background: #333; color: white; border: 1px solid #555; }
+        body { background: #1a1a1b; color: #d1d1d1; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; margin: 0; }
+        #controls { padding: 20px; background: #252526; width: 100%; display: flex; justify-content: center; gap: 20px; border-bottom: 2px solid #3e3e42; box-sizing: border-box; }
+        canvas { border: 1px solid #3e3e42; margin-top: 20px; image-rendering: pixelated; }
+        button { cursor: pointer; padding: 10px 20px; background: #3e4a3e; color: #fff; border: 1px solid #5e6a5e; font-weight: bold; }
+        button:hover { background: #4e5a4e; }
+        select { padding: 10px; background: #2d2d30; color: #fff; border: 1px solid #3e3e42; }
+        #log { position: fixed; bottom: 10px; left: 10px; font-size: 12px; color: #888; }
     </style>
 </head>
 <body>
@@ -28,98 +29,38 @@
             <option value="mountains">Mountains</option>
         </select>
     </div>
-    <button onclick="generateMap()">Roll Terrain</button>
+    <button id="rollBtn">Roll Terrain</button>
 </div>
+<div id="log">Status: Awaiting orders...</div>
 
 <script>
 const { defineHex, Grid, rectangle } = Honeycomb;
 
-// Setup Hex Definition
-const MyHex = defineHex({ dimensions: 20, orientation: 'flat' });
+// Hex Setup
+const HEX_SIZE = 18;
+const MyHex = defineHex({ dimensions: HEX_SIZE, orientation: 'flat' });
 let grid;
-let mapData = new Map(); // Stores terrain type for each hex
+let mapData = {}; // Key: "q,r", Value: terrainType
 
-// D@W Gritty Palette
-const colors = {
-    clear: "#8c8e7b",      // Muted Olive/Tan
-    woods: "#3d4d3d",      // Dark Forest Green
-    scrub: "#a69f88",      // Dusty Khaki
-    swamp: "#4a5a5a",      // Slate Teal
-    mountains: "#5e5e5e",  // Granite Gray
+// Gritty ACKS Palette
+const palette = {
+    clear: "#8c8e7b",      // Dry Grass/Dirt
+    woods: "#3d4d3d",      // Thick Forest
+    scrub: "#a69f88",      // Sparse Brush
+    swamp: "#4a5a5a",      // Murky Water
+    mountains: "#5e5e5e",  // Cold Stone
     outline: "#2a2a2a"
 };
 
 function setup() {
-    createCanvas(windowWidth, windowHeight - 80);
+    let cvs = createCanvas(windowWidth - 40, windowHeight - 140);
+    cvs.parent(document.body);
+    
+    document.getElementById('rollBtn').addEventListener('click', generateMap);
+    
+    // Initial Map
     generateMap();
 }
 
 function generateMap() {
-    const terrainType = document.getElementById('terrainSelect').value;
-    
-    // 1. Initialize Grid (approx 30x20 for a battle map)
-    grid = new Grid(MyHex, rectangle({ width: 35, height: 25 }));
-    mapData.clear();
-
-    // 2. Set default base color
-    grid.forEach(hex => {
-        mapData.set(`${hex.q},${hex.r}`, terrainType);
-    });
-
-    // 3. Roll for Features (Abstracted D@W Logic)
-    let featureCount = floor(random(1, 5)); // Base roll
-    let featureType = "woods"; // Default sub-feature
-    
-    if (terrainType === "woods") featureType = "clear";
-    if (terrainType === "clear") featureType = "woods";
-    if (terrainType === "mountains") featureType = "scrub";
-
-    for (let i = 0; i < featureCount; i++) {
-        placeFeature(featureType);
-    }
-    
-    redraw();
-}
-
-function placeFeature(type) {
-    // Pick random center
-    const allHexes = Array.from(grid);
-    const center = allHexes[floor(random(allHexes.length))];
-    const radius = floor(random(1, 4));
-
-    // Get all hexes in range and "paint" them
-    grid.traverse(grid.range({ start: center, distance: radius })).forEach(hex => {
-        // Slight randomness for irregular shapes
-        if (random() > 0.1) {
-            mapData.set(`${hex.q},${hex.r}`, type);
-        }
-    });
-}
-
-function draw() {
-    background(26);
-    noLoop();
-
-    grid.forEach(hex => {
-        const type = mapData.get(`${hex.q},${hex.r}`);
-        fill(colors[type] || colors.clear);
-        stroke(colors.outline);
-        strokeWeight(1);
-
-        // Get pixel coordinates from hex math
-        const { x, y } = hex;
-        
-        beginShape();
-        hex.corners.forEach(corner => vertex(corner.x, corner.y));
-        endShape(CLOSE);
-    });
-}
-
-// Handle window resizing
-function windowResized() {
-    resizeCanvas(windowWidth, windowHeight - 80);
-    redraw();
-}
-</script>
-</body>
-</html>
+    const baseType = document.getElementById('terrainSelect
