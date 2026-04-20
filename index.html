@@ -7,14 +7,14 @@
     <style>
         body { background: #1a1a1b; color: #d1d1d1; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; overflow: hidden; }
         #controls { padding: 8px; background: #252526; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; border-bottom: 2px solid #3e3e42; box-sizing: border-box; z-index: 10;}
-        .control-group { display: flex; align-items: center; gap: 5px; border: 1px solid #444; padding: 3px 6px; border-radius: 4px; font-size: 11px; }
-        button { cursor: pointer; padding: 4px 8px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: inherit; font-weight: bold; font-size: 11px; }
+        .control-group { display: flex; align-items: center; gap: 5px; border: 1px solid #444; padding: 3px 6px; border-radius: 4px; font-size: 10px; }
+        button { cursor: pointer; padding: 4px 8px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: inherit; font-weight: bold; font-size: 10px; }
         button:hover { background: #4e5a4e; }
-        select, input { padding: 2px; background: #2d2d30; color: white; border: 1px solid #3e3e42; font-family: inherit; font-size: 11px; }
-        input[type="number"] { width: 40px; }
-        #debug-panel { width: 100%; background: #111; padding: 6px; font-size: 10px; color: #00ff00; border-bottom: 1px solid #333; height: 50px; overflow-y: auto; box-sizing: border-box; }
+        select, input { padding: 2px; background: #2d2d30; color: white; border: 1px solid #3e3e42; font-family: inherit; font-size: 10px; }
+        input[type="number"] { width: 35px; }
+        #debug-panel { width: 100%; background: #111; padding: 6px; font-size: 10px; color: #00ff00; border-bottom: 1px solid #333; height: 45px; overflow-y: auto; box-sizing: border-box; }
         #legend { width: 100%; background: #1a1a1b; padding: 8px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid #333; position: fixed; bottom: 0; }
-        .legend-item { font-size: 11px; display: flex; align-items: center; gap: 4px; }
+        .legend-item { font-size: 10px; display: flex; align-items: center; gap: 4px; }
     </style>
 </head>
 <body>
@@ -23,32 +23,42 @@
     <div class="control-group">
         <label>Base:</label>
         <select id="terrainSelect">
-            <option value="Clear or Grass">Clear or Grass</option>
+            <option value="Clear or Grass">Clear/Grass</option>
             <option value="Barren">Barren</option>
             <option value="Desert">Desert</option>
             <option value="Hills">Hills</option>
             <option value="Scrub">Scrub</option>
             <option value="Woods">Woods</option>
-            <option value="Mountains">Mountains</option>
+            <option value="Mountains">Mntns</option>
             <option value="Jungle">Jungle</option>
             <option value="Swamp">Swamp</option>
         </select>
-        <label><input type="checkbox" id="transparentCheck"> Transparent</label>
+        <label><input type="checkbox" id="transparentCheck"> Transp.</label>
     </div>
     <div class="control-group">
-        <label>Scale(px):</label><input type="number" id="sizeInput" value="18">
-        <label>Border:</label><input type="number" id="borderInput" value="1">
+        <label>Hex:</label><input type="number" id="sizeInput" value="18">
+        <label>Line:</label><input type="number" id="borderInput" value="1">
+        <label><input type="checkbox" id="gridCheck" checked> Grid</label>
+        <label><input type="checkbox" id="iconCheck" checked> Icons</label>
     </div>
     <div class="control-group">
-        <label>W:</label><button id="btnColDec">-</button><span id="colVal">24</span><button id="btnColInc">+</button>
-        <label>H:</label><button id="btnRowDec">-</button><span id="rowVal">18</span><button id="btnRowInc">+</button>
+        <label>Coords:</label>
+        <label><input type="checkbox" id="coordCheck"> Show</label>
+        <label>Size:</label><input type="number" id="coordSizeInput" value="8">
+        <label>Pos:</label>
+        <select id="coordPos">
+            <option value="center">Center</option>
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+        </select>
     </div>
     <div class="control-group">
-        <select id="orientSelect"><option value="flat">Flat-Top</option><option value="pointy">Pointy-Top</option></select>
+        <button id="btnColDec">-</button><span id="colVal">24</span><button id="btnColInc">+</button>
+        <button id="btnRowDec">-</button><span id="rowVal">18</span><button id="btnRowInc">+</button>
+    </div>
+    <div class="control-group">
+        <select id="orientSelect"><option value="flat">Flat</option><option value="pointy">Pointy</option></select>
         <select id="offsetSelect"><option value="even">Even</option><option value="odd">Odd</option></select>
-    </div>
-    <div class="control-group">
-        <label><input type="checkbox" id="coordCheck"> Coords</label>
     </div>
     <button id="btnRoll" style="background: #5a4a3e;">Roll</button>
     <button id="btnExport" style="background: #2d2d30;">Export PNG</button>
@@ -88,14 +98,12 @@ function setup() {
     document.getElementById('btnRowDec').onclick = () => changeDim('rows', -1);
     document.getElementById('btnRowInc').onclick = () => changeDim('rows', 1);
     
-    // UI Refreshers
-    ['sizeInput', 'borderInput', 'coordCheck', 'transparentCheck', 'orientSelect', 'offsetSelect'].forEach(id => {
+    ['sizeInput', 'borderInput', 'coordCheck', 'transparentCheck', 'orientSelect', 'offsetSelect', 'gridCheck', 'iconCheck', 'coordSizeInput', 'coordPos'].forEach(id => {
         document.getElementById(id).onchange = () => redraw();
     });
 
     document.getElementById('btnRoll').onclick = generateMap;
     document.getElementById('btnExport').onclick = exportCroppedMap;
-    
     createLegend();
     generateMap();
 }
@@ -129,14 +137,13 @@ function generateMap() {
         }
     }
     const pieceCounts = {
-        "Clear or Grass": [2, 4], "Barren": [3, 4], "Desert": [3, 4],
-        "Hills": [4, 4], "Scrub": [4, 4], "Woods": [4, 6],
-        "Mountains": [4, 8], "Jungle": [4, 8], "Swamp": [4, 8]
+        "Clear or Grass": [2, 4], "Barren": [3, 4], "Desert": [3, 4], "Hills": [4, 4], 
+        "Scrub": [4, 4], "Woods": [4, 6], "Mountains": [4, 8], "Jungle": [4, 8], "Swamp": [4, 8]
     };
     let dice = pieceCounts[baseType] || [2, 4];
     let numFeatures = 0;
     for(let i=0; i<dice[0]; i++) numFeatures += Math.floor(random(1, dice[1]+1));
-    document.getElementById('debug-panel').innerHTML = `>> Rolling ${baseType}: ${numFeatures} pieces placed.`;
+    document.getElementById('debug-panel').innerHTML = `>> Map Rolled: ${numFeatures} terrain pieces added to ${baseType}.`;
     
     for (let i = 0; i < numFeatures; i++) placeFeature(rollFeatureTable(baseType));
     redraw();
@@ -192,17 +199,24 @@ function drawHex(ctx, hex, sz, orient, offset, minX, minY, margin, isExport) {
     let isTrans = document.getElementById('transparentCheck').checked;
     let bWidth = parseInt(document.getElementById('borderInput').value);
     let showCoords = document.getElementById('coordCheck').checked;
+    let showIcons = document.getElementById('iconCheck').checked;
+    let showGrid = document.getElementById('gridCheck').checked;
+    let cSize = parseInt(document.getElementById('coordSizeInput').value);
+    let cPos = document.getElementById('coordPos').value;
 
     ctx.push();
     ctx.translate(x, y);
     
-    // Fill
+    // Hex Body
     if (hex.isBase && isTrans) ctx.noFill();
     else ctx.fill(data.color[0], data.color[1], data.color[2]);
     
-    // Stroke
-    ctx.stroke(40);
-    ctx.strokeWeight(bWidth);
+    if (showGrid) {
+        ctx.stroke(40);
+        ctx.strokeWeight(bWidth);
+    } else {
+        ctx.noStroke();
+    }
     
     if (orient === "pointy") ctx.rotate(PI / 6);
     ctx.beginShape();
@@ -210,16 +224,20 @@ function drawHex(ctx, hex, sz, orient, offset, minX, minY, margin, isExport) {
     ctx.endShape(CLOSE);
     ctx.pop();
 
-    // Symbols & Coords
+    // Icons
     ctx.noStroke(); ctx.textAlign(CENTER, CENTER);
-    if (data.symbol) {
+    if (showIcons && data.symbol) {
         ctx.fill(255, 140); ctx.textSize(sz * 0.7);
         ctx.text(data.symbol, x, y);
     }
+    
+    // Coords
     if (showCoords) {
-        ctx.fill(255, 80); ctx.textSize(sz * 0.4);
-        let coordY = data.symbol ? y + (sz * 0.5) : y;
-        ctx.text(`${hex.c},${hex.r}`, x, coordY);
+        ctx.fill(255, 100); ctx.textSize(cSize);
+        let cy = y;
+        if(cPos === "top") cy = y - (sz * 0.6);
+        if(cPos === "bottom") cy = y + (sz * 0.6);
+        ctx.text(`${hex.c},${hex.r}`, x, cy);
     }
 }
 
@@ -244,11 +262,11 @@ function exportCroppedMap() {
         maxX = max(maxX, p.x); maxY = max(maxY, p.y);
     });
 
-    let margin = sz * 1.2, w = (maxX - minX) + (margin * 2), h = (maxY - minY) + (margin * 2);
+    let margin = sz * 1.5, w = (maxX - minX) + (margin * 2), h = (maxY - minY) + (margin * 2);
     let off = createGraphics(w, h);
     if (!document.getElementById('transparentCheck').checked) off.background(26);
     grid.forEach(hex => drawHex(off, hex, sz, orient, offset, minX, minY, margin, true));
-    save(off, "dw-map.png");
+    save(off, "acks-map.png");
 }
 
 function windowResized() { resizeCanvas(windowWidth, windowHeight - 150); redraw(); }
