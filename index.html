@@ -6,20 +6,20 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
         body { background: #1a1a1b; color: #d1d1d1; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; }
-        #controls { padding: 15px; background: #252526; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; border-bottom: 2px solid #3e3e42; }
+        #controls { padding: 15px; background: #252526; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; border-bottom: 2px solid #3e3e42; box-sizing: border-box;}
         .control-group { display: flex; align-items: center; gap: 8px; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; }
         button { cursor: pointer; padding: 5px 10px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: inherit; font-weight: bold; }
         button:hover { background: #4e5a4e; }
         select { padding: 8px; background: #2d2d30; color: white; border: 1px solid #3e3e42; font-family: inherit; }
         span { font-weight: bold; color: #fff; min-width: 20px; text-align: center; }
-        #legend { margin-top: 10px; font-size: 11px; color: #888; }
+        #seedDisplay { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #555; }
     </style>
 </head>
 <body>
 
 <div id="controls">
     <div class="control-group">
-        <label>6-Mile Hex Type: </label>
+        <label>Terrain: </label>
         <select id="terrainSelect">
             <option value="Clear or Grass">Clear or Grass</option>
             <option value="Barren">Barren</option>
@@ -34,26 +34,28 @@
     </div>
     <div class="control-group">
         <label>W:</label>
-        <button onclick="changeDim('cols', -1)">-</button>
+        <button id="btnColDec">-</button>
         <span id="colVal">24</span>
-        <button onclick="changeDim('cols', 1)">+</button>
+        <button id="btnColInc">+</button>
     </div>
     <div class="control-group">
         <label>H:</label>
-        <button onclick="changeDim('rows', -1)">-</button>
+        <button id="btnRowDec">-</button>
         <span id="rowVal">18</span>
-        <button onclick="changeDim('rows', 1)">+</button>
+        <button id="btnRowInc">+</button>
     </div>
-    <button onclick="generateMap()" style="background: #5a4a3e;">Roll Terrain</button>
-    <button onclick="saveCanvas('battlemap', 'png')" style="background: #2d2d30;">Export PNG</button>
+    <button id="btnRoll" style="background: #5a4a3e;">Roll Terrain</button>
+    <button id="btnExport" style="background: #2d2d30;">Export PNG</button>
 </div>
-<div id="legend"></div>
+<div id="seedDisplay">Seed: <span id="seedNum">0</span></div>
 
 <script>
+// --- CONFIG & DATA ---
 let grid = [];
 let cols = 24;
 let rows = 18;
 const size = 18;
+let currentSeed = 0;
 
 const terrainData = {
     "Clear or Grass": { color: "#8c8e7b", symbol: "" },
@@ -75,26 +77,35 @@ const terrainData = {
     "Trench": { color: "#333", symbol: "═" }
 };
 
+// --- CORE FUNCTIONS ---
+
 function setup() {
-    createCanvas(windowWidth, windowHeight - 150);
+    createCanvas(windowWidth, windowHeight - 100);
+    
+    // Attach events here instead of in HTML to prevent "ReferenceError"
+    document.getElementById('btnColDec').onclick = () => changeDim('cols', -1);
+    document.getElementById('btnColInc').onclick = () => changeDim('cols', 1);
+    document.getElementById('btnRowDec').onclick = () => changeDim('rows', -1);
+    document.getElementById('btnRowInc').onclick = () => changeDim('rows', 1);
+    document.getElementById('btnRoll').onclick = () => generateMap();
+    document.getElementById('btnExport').onclick = () => saveCanvas('dw-battlemap', 'png');
+
     generateMap();
 }
 
 function changeDim(dim, amt) {
-    if (dim === 'cols') cols = max(5, cols + amt);
-    if (dim === 'rows') rows = max(5, rows + amt);
+    if (dim === 'cols') cols = Math.max(5, cols + amt);
+    if (dim === 'rows') rows = Math.max(5, rows + amt);
     document.getElementById('colVal').innerText = cols;
     document.getElementById('rowVal').innerText = rows;
     generateMap();
 }
 
-function rollDice(n, d) {
-    let total = 0;
-    for(let i=0; i<n; i++) total += floor(random(1, d+1));
-    return total;
-}
-
 function generateMap() {
+    currentSeed = Math.floor(Math.random() * 999999);
+    randomSeed(currentSeed);
+    document.getElementById('seedNum').innerText = currentSeed;
+
     const baseType = document.getElementById('terrainSelect').value;
     grid = [];
     for (let r = 0; r < rows; r++) {
@@ -109,8 +120,9 @@ function generateMap() {
         "Mountains": [4, 8], "Jungle": [4, 8], "Swamp": [4, 8]
     };
     
-    let count = pieceCounts[baseType];
-    let numFeatures = rollDice(count[0], count[1]);
+    let countData = pieceCounts[baseType] || [2, 4];
+    let numFeatures = 0;
+    for(let i=0; i<countData[0]; i++) numFeatures += Math.floor(random(1, countData[1]+1));
 
     for (let i = 0; i < numFeatures; i++) {
         let feature = rollFeatureTable(baseType);
@@ -120,7 +132,7 @@ function generateMap() {
 }
 
 function rollFeatureTable(base) {
-    let r = rollDice(1, 20);
+    let r = Math.floor(random(1, 21));
     if (base === "Clear or Grass") {
         if (r <= 4) return "Broken"; if (r <= 6) return "Cliff/Mountain"; if (r <= 8) return "Forest/Jungle"; if (r <= 14) return "Hills";
         if (r <= 16) return "Mud"; if (r <= 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Swamp";
@@ -153,13 +165,13 @@ function rollFeatureTable(base) {
 }
 
 function placeFeature(type) {
-    let centerX = floor(random(cols));
-    let centerY = floor(random(rows));
-    let radius = floor(random(1, 4));
+    let centerX = Math.floor(random(cols));
+    let centerY = Math.floor(random(rows));
+    let radius = Math.floor(random(1, 4));
     grid.forEach(hex => {
         let dx = hex.c - centerX;
         let dy = hex.r - centerY;
-        let dist = (abs(dx) + abs(dx + dy) + abs(dy)) / 2;
+        let dist = (Math.abs(dx) + Math.abs(dx + dy) + Math.abs(dy)) / 2;
         if (dist <= radius && random() > 0.15) hex.type = type;
     });
 }
@@ -168,12 +180,23 @@ function draw() {
     background(26);
     grid.forEach(hex => {
         let x = hex.c * size * 1.5 + 50;
-        let y = hex.r * size * sqrt(3) + (hex.c % 2) * (size * sqrt(3) / 2) + 50;
+        let y = hex.r * size * Math.sqrt(3) + (hex.c % 2) * (size * Math.sqrt(3) / 2) + 50;
         let data = terrainData[hex.type] || terrainData["Clear or Grass"];
         fill(data.color);
         stroke(40);
         beginShape();
-        for (let a = 0; a < TWO_PI; a += PI / 3) vertex(x + cos(a) * size, y + sin(a) * size);
+        for (let a = 0; a < TWO_PI; a += PI / 3) vertex(x + Math.cos(a) * size, y + Math.sin(a) * size);
         endShape(CLOSE);
         fill(255, 120); noStroke(); textAlign(CENTER, CENTER); textSize(12);
-        text(data.symbol,
+        text(data.symbol, x, y);
+    });
+    noLoop();
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight - 100);
+    redraw();
+}
+</script>
+</body>
+</html>
