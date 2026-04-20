@@ -2,48 +2,52 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ACKS D@W Map Gen</title>
+    <title>ACKS D@W Battlemap Generator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
-        body { background: #1a1a1b; color: #d1d1d1; font-family: monospace; display: flex; flex-direction: column; align-items: center; margin: 0; }
+        body { background: #1a1a1b; color: #d1d1d1; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; }
         #controls { padding: 15px; background: #252526; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; border-bottom: 2px solid #3e3e42; }
         .control-group { display: flex; align-items: center; gap: 8px; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; }
-        button { cursor: pointer; padding: 5px 10px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: monospace; }
+        button { cursor: pointer; padding: 5px 10px; background: #3e4a3e; color: white; border: 1px solid #5e6a5e; font-family: inherit; font-weight: bold; }
         button:hover { background: #4e5a4e; }
-        select { padding: 8px; background: #2d2d30; color: white; border: 1px solid #3e3e42; }
+        select { padding: 8px; background: #2d2d30; color: white; border: 1px solid #3e3e42; font-family: inherit; }
         span { font-weight: bold; color: #fff; min-width: 20px; text-align: center; }
+        #legend { margin-top: 10px; font-size: 11px; color: #888; }
     </style>
 </head>
 <body>
 
 <div id="controls">
     <div class="control-group">
-        <label>Base: </label>
+        <label>6-Mile Hex Type: </label>
         <select id="terrainSelect">
-            <option value="clear">Clear</option>
-            <option value="woods">Woods</option>
-            <option value="scrub">Scrub</option>
-            <option value="swamp">Swamp</option>
-            <option value="mountains">Mountains</option>
+            <option value="Clear or Grass">Clear or Grass</option>
+            <option value="Barren">Barren</option>
+            <option value="Desert">Desert</option>
+            <option value="Hills">Hills</option>
+            <option value="Scrub">Scrub</option>
+            <option value="Woods">Woods</option>
+            <option value="Mountains">Mountains</option>
+            <option value="Jungle">Jungle</option>
+            <option value="Swamp">Swamp</option>
         </select>
     </div>
-
     <div class="control-group">
-        <label>Width:</label>
+        <label>W:</label>
         <button onclick="changeDim('cols', -1)">-</button>
         <span id="colVal">24</span>
         <button onclick="changeDim('cols', 1)">+</button>
     </div>
-
     <div class="control-group">
-        <label>Height:</label>
+        <label>H:</label>
         <button onclick="changeDim('rows', -1)">-</button>
         <span id="rowVal">18</span>
         <button onclick="changeDim('rows', 1)">+</button>
     </div>
-
-    <button onclick="generateMap()" style="background: #5a4a3e; border-color: #7a6a5e;">Roll Terrain</button>
+    <button onclick="generateMap()" style="background: #5a4a3e;">Roll Terrain</button>
+    <button onclick="saveCanvas('battlemap', 'png')" style="background: #2d2d30;">Export PNG</button>
 </div>
+<div id="legend"></div>
 
 <script>
 let grid = [];
@@ -51,93 +55,125 @@ let cols = 24;
 let rows = 18;
 const size = 18;
 
-const palette = {
-    clear: "#8c8e7b",
-    woods: "#3d4d3d",
-    scrub: "#a69f88",
-    swamp: "#4a5a5a",
-    mountains: "#5e5e5e"
+const terrainData = {
+    "Clear or Grass": { color: "#8c8e7b", symbol: "" },
+    "Barren": { color: "#7a7363", symbol: ".." },
+    "Desert": { color: "#d4b884", symbol: ".." },
+    "Scrub": { color: "#a69f88", symbol: "v" },
+    "Woods": { color: "#3d4d3d", symbol: "♣" },
+    "Mountains": { color: "#5e5e5e", symbol: "▲" },
+    "Jungle": { color: "#1e331e", symbol: "♠" },
+    "Swamp": { color: "#4a5a5a", symbol: "░" },
+    "Hills": { color: "#7a7c6b", symbol: "∩" },
+    "Broken": { color: "#635d4d", symbol: "∴" },
+    "Cliff/Mountain": { color: "#444", symbol: "▲" },
+    "Forest/Jungle": { color: "#2d3d2d", symbol: "♣" },
+    "Impenet. Forest": { color: "#162116", symbol: "♣♣" },
+    "Mud": { color: "#54493a", symbol: "≡" },
+    "Pond/Lake": { color: "#4a6a8a", symbol: "o" },
+    "Stream": { color: "#5a7a9a", symbol: "~" },
+    "Trench": { color: "#333", symbol: "═" }
 };
 
 function setup() {
-    createCanvas(windowWidth, windowHeight - 120);
+    createCanvas(windowWidth, windowHeight - 150);
     generateMap();
 }
 
 function changeDim(dim, amt) {
     if (dim === 'cols') cols = max(5, cols + amt);
     if (dim === 'rows') rows = max(5, rows + amt);
-    
     document.getElementById('colVal').innerText = cols;
     document.getElementById('rowVal').innerText = rows;
-    
-    generateMap(); // Re-generate immediately so you see the size change
+    generateMap();
+}
+
+function rollDice(n, d) {
+    let total = 0;
+    for(let i=0; i<n; i++) total += floor(random(1, d+1));
+    return total;
 }
 
 function generateMap() {
     const baseType = document.getElementById('terrainSelect').value;
     grid = [];
-
-    // 1. Create Grid based on current cols/rows
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             grid.push({ c, r, type: baseType });
         }
     }
 
-    // 2. Roll Features
-    let numFeatures = floor(random(2, 6));
+    const pieceCounts = {
+        "Clear or Grass": [2, 4], "Barren": [3, 4], "Desert": [3, 4],
+        "Hills": [4, 4], "Scrub": [4, 4], "Woods": [4, 6],
+        "Mountains": [4, 8], "Jungle": [4, 8], "Swamp": [4, 8]
+    };
+    
+    let count = pieceCounts[baseType];
+    let numFeatures = rollDice(count[0], count[1]);
+
     for (let i = 0; i < numFeatures; i++) {
-        let featureType = getFeatureType(baseType);
-        placeFeature(featureType);
+        let feature = rollFeatureTable(baseType);
+        if (feature) placeFeature(feature);
     }
     redraw();
 }
 
-function getFeatureType(base) {
-    const opts = { clear: "woods", woods: "clear", scrub: "clear", swamp: "woods", mountains: "scrub" };
-    return opts[base] || "clear";
+function rollFeatureTable(base) {
+    let r = rollDice(1, 20);
+    if (base === "Clear or Grass") {
+        if (r <= 4) return "Broken"; if (r <= 6) return "Cliff/Mountain"; if (r <= 8) return "Forest/Jungle"; if (r <= 14) return "Hills";
+        if (r <= 16) return "Mud"; if (r <= 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Swamp";
+    }
+    if (base === "Barren") {
+        if (r <= 7) return "Broken"; if (r <= 12) return "Cliff/Mountain"; if (r <= 18) return "Hills"; if (r === 19) return "Mud"; if (r === 20) return "Trench";
+    }
+    if (base === "Desert") {
+        if (r <= 5) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 16) return "Hills"; if (r <= 18) return "Mud"; if (r >= 19) return "Trench";
+    }
+    if (base === "Hills") {
+        if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 6) return "Forest/Jungle"; if (r <= 16) return "Hills"; if (r <= 18) return "Pond/Lake"; if (r >= 19) return "Stream";
+    }
+    if (base === "Scrub") {
+        if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 8) return "Forest/Jungle"; if (r <= 16) return "Hills"; if (r === 17) return "Impenet. Forest"; if (r === 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Trench";
+    }
+    if (base === "Woods") {
+        if (r <= 2) return "Broken"; if (r <= 4) return "Cliff/Mountain"; if (r <= 12) return "Forest/Jungle"; if (r <= 14) return "Hills"; if (r <= 17) return "Impenet. Forest"; if (r === 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Swamp";
+    }
+    if (base === "Mountains") {
+        if (r <= 4) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 12) return "Forest/Jungle"; if (r <= 14) return "Hills"; if (r <= 16) return "Impenet. Forest"; if (r <= 18) return "Pond/Lake"; if (r === 19) return "Stream"; if (r === 20) return "Trench";
+    }
+    if (base === "Jungle") {
+        if (r <= 2) return "Broken"; if (r <= 10) return "Cliff/Mountain"; if (r <= 12) return "Hills"; if (r <= 15) return "Impenet. Forest"; if (r === 16) return "Mud"; if (r === 17) return "Pond/Lake"; if (r <= 19) return "Stream"; if (r === 20) return "Swamp";
+    }
+    if (base === "Swamp") {
+        if (r <= 4) return "Forest/Jungle"; if (r <= 8) return "Impenet. Forest"; if (r <= 10) return "Mud"; if (r === 11) return "Pond/Lake"; if (r <= 13) return "Stream"; if (r <= 20) return "Swamp";
+    }
+    return null;
 }
 
 function placeFeature(type) {
     let centerX = floor(random(cols));
     let centerY = floor(random(rows));
     let radius = floor(random(1, 4));
-
     grid.forEach(hex => {
         let dx = hex.c - centerX;
         let dy = hex.r - centerY;
         let dist = (abs(dx) + abs(dx + dy) + abs(dy)) / 2;
-        
-        if (dist <= radius && random() > 0.1) {
-            hex.type = type;
-        }
+        if (dist <= radius && random() > 0.15) hex.type = type;
     });
 }
 
 function draw() {
     background(26);
     grid.forEach(hex => {
-        // Calculate Flat-Topped Hex Position
         let x = hex.c * size * 1.5 + 50;
         let y = hex.r * size * sqrt(3) + (hex.c % 2) * (size * sqrt(3) / 2) + 50;
-
-        fill(palette[hex.type]);
+        let data = terrainData[hex.type] || terrainData["Clear or Grass"];
+        fill(data.color);
         stroke(40);
-        
         beginShape();
-        for (let a = 0; a < TWO_PI; a += PI / 3) {
-            vertex(x + cos(a) * size, y + sin(a) * size);
-        }
+        for (let a = 0; a < TWO_PI; a += PI / 3) vertex(x + cos(a) * size, y + sin(a) * size);
         endShape(CLOSE);
-    });
-    noLoop();
-}
-
-function windowResized() {
-    resizeCanvas(windowWidth, windowHeight - 120);
-    redraw();
-}
-</script>
-</body>
-</html>
+        fill(255, 120); noStroke(); textAlign(CENTER, CENTER); textSize(12);
+        text(data.symbol,
